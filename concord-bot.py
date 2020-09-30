@@ -10,6 +10,8 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 VERIFIED = int(os.getenv('VERIFIED_ROLE'))
 MODLOG = int(os.getenv('MOD_CHANNEL'))
+SECURITY = int(os.getenv('SECURITY_ROLE'))
+CHECKPOINT = int(os.getenv('CHECKPOINT_CAT'))
 
 bot = commands.Bot(command_prefix='!')
 logger = logging.getLogger('discord')
@@ -36,18 +38,35 @@ async def on_error(event, *args, **kwargs):
 async def on_member_join(member):
     guild = member.guild
     tempName = str(member)
+    mention = member.mention
+    securityRole = guild.get_role(int(SECURITY))
 
     # Set of permissions for the new channel
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=False),
         guild.me: discord.PermissionOverwrite(read_messages=True),
-        member: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True, read_message_history=True)
+        securityRole: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True,
+                                                  read_message_history=True),
+        member: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True,
+                                            read_message_history=True)
 
     }
-    tempChannel = await guild.create_text_channel(tempName, overwrites=overwrites, category="Lobby")
-## TO DO - Remove Hard coded role id
-    await tempChannel.send('${member}, Welcome! You are new to our server! Here is a private channel for us to interview you.')
-    await tempChannel.send('We take security very seriously here!\n\nOne of our <@&756849372402024569> Staff will be along to aid you soon. In the meantime, check out the #welcome-to-home channel and select your reason for being here. Then you can chat in the #welcome-lobby\n\nIf You are applying to HOME, you can speed up the process by posting an in game screenshot of your entire character sheet. Thanks!')
+    # TO DO - Remove Hard coded role id and checkpoint category name
+    tempChannel = await guild.create_text_channel(tempName, overwrites=overwrites)
+
+    # Get the category for the checkpoint
+    for category in guild.categories:
+        if category.id == CHECKPOINT:
+            await tempChannel.edit(category=category)
+            logger.info(f'ON_MEMBER_JOIN: {member} joined, Channel Created {tempChannel} under {category}')
+
+    await tempChannel.send(f'{mention}, Welcome! You are new to our server! Here is a private channel for us to '
+                           'interview you.')
+    await tempChannel.send('We take security very seriously here!\n\nOne of our <@&756849372402024569> Staff will be '
+                           'along to aid you soon. In the meantime, check out the #welcome-to-home channel and select '
+                           'your reason for being here. Then you can chat in the #welcome-lobby\n\nIf You are applying '
+                           'to HOME, you can speed up the process by posting an in game screenshot of your entire '
+                           'character sheet. Thanks!')
 
 
 @bot.command(name='verify')
