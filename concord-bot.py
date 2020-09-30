@@ -41,12 +41,13 @@ async def on_member_join(member):
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=False),
         guild.me: discord.PermissionOverwrite(read_messages=True),
-        member: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        member: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True, read_message_history=True)
 
     }
-    tempChannel = await guild.create_text_channel(tempName, overwrites=overwrites)
-
-    await tempChannel.send('Welcome to our server. We take security very seriously here! So, please let us know why are are here')
+    tempChannel = await guild.create_text_channel(tempName, overwrites=overwrites, category="Lobby")
+## TO DO - Remove Hard coded role id
+    await tempChannel.send('${member}, Welcome! You are new to our server! Here is a private channel for us to interview you.')
+    await tempChannel.send('We take security very seriously here!\n\nOne of our <@&756849372402024569> Staff will be along to aid you soon. In the meantime, check out the #welcome-to-home channel and select your reason for being here. Then you can chat in the #welcome-lobby\n\nIf You are applying to HOME, you can speed up the process by posting an in game screenshot of your entire character sheet. Thanks!')
 
 
 @bot.command(name='verify')
