@@ -2,6 +2,7 @@ import os
 import logging
 import discord
 import asyncio
+import datetime
 from discord.ext import commands
 from discord.utils import get
 from dotenv import load_dotenv
@@ -13,6 +14,8 @@ MODLOG = int(os.getenv('MOD_CHANNEL'))
 SECURITY = int(os.getenv('SECURITY_ROLE'))
 CHECKPOINT = int(os.getenv('CHECKPOINT_CAT'))
 GENERAL = int(os.getenv('GENERAL_CHAT'))
+JOINLEAVE = int(os.getenv('ENTRY_EXIT_CHANNEL'))
+NEWB = int(os.getenv('NEWBIE_ROLE'))
 
 bot = commands.Bot(command_prefix='!')
 logger = logging.getLogger('discord')
@@ -63,18 +66,38 @@ async def on_member_join(member):
 
     await tempChannel.send(f'{mention}, Welcome! You are new to our server! Here is a private channel for us to '
                            'interview you.')
-    await tempChannel.send('We take security very seriously here!\n\nOne of our <@&756849372402024569> Staff will be '
+    await tempChannel.send(f'We take security very seriously here!\n\nOne of our {securityRole.mention} Staff will be '
                            'along to aid you soon. In the meantime, check out the #welcome-to-home channel and select '
                            'your reason for being here. Then you can chat in the #welcome-lobby\n\nIf You are applying '
                            'to HOME, you can speed up the process by posting an in game screenshot of your entire '
                            'character sheet. Thanks!')
+
+    # Server Entry Exit Logging
+
+    logEmbed = discord.Embed(title="New Member Joined", color=0x00A71E)
+    logEmbed.description = f'{member.mention} ( {member.name} ) has joined the server'
+    logEmbed.add_field(name='Create Date', value=member.created_at)
+    logEmbed.add_field(name='Private Channel', value=tempName)
+    logEmbed.set_thumbnail(url=member.avatar_url)
+
+    # check if account less than 7 days old
+    oneWeekAgo = datetime.date.Today() - datetime.timedelta(days=7)
+    if member.created_at > oneWeekAgo:
+        securityRole = guild.get_role(int(SECURITY))
+        logEmbed.add_field(name='WARNING', value=f'{securityRole.mention} this account is less than 7 days old')
+
+    guild.get_channel(JOINLEAVE).send(embed=logEmbed)
+
+
+
+
 
 
 @bot.command(name='verify')
 async def verify(ctx, member: discord.Member):
     channel = ctx.channel
     verifiedRole = ctx.guild.get_role(VERIFIED)
-    logStatement = '{0.display_name} verified {1.name}'.format(ctx.author, member)
+    newbieRole = ctx.guild.get_role(NEWB)
     logger.info('VERIFY: {0.display_name} used verify on {1.name}'.format(ctx.author, member))
     tempName = str(member).replace(' ', '-').replace('#', '').lower()
     securityRole = ctx.guild.get_role(int(SECURITY))
@@ -82,6 +105,7 @@ async def verify(ctx, member: discord.Member):
     correctChannel = get(ctx.guild.text_channels, name=tempName)
     generalchat = get(ctx.guild.text_channels, id=GENERAL)
 
+    # Create a Welcome Embed for the General Chat channel
     welcomeEmbed = discord.Embed(title="Welcome!", color=0xBA2100,
                                  description=f'{member.mention} has joined us. Welcome '
                                              f'them to their new HOME.'
@@ -90,33 +114,53 @@ async def verify(ctx, member: discord.Member):
                                              f'department(s) and focus.')
     welcomeEmbed.set_thumbnail(url=member.avatar_url)
 
+    # Create the MODLOG channel embed
     logEmbed = discord.Embed(title="Verify Command", color=0xBA2100)
 
+    # break the process if they forgot to include an target
+    if member is None:
+        await channel.send('```Need the @name of the person you are attempting to verify```')
+        return
+
+    # Check to make sure the author has the SECURITY_ROLE and is using it in the private channel that the @mention
+    # indicates
     if securityRole in ctx.author.roles and ctx.channel == correctChannel:
-        await member.add_roles(verifiedRole, reason=logStatement)
-        await ctx.guild.get_channel(MODLOG).send(logStatement)
+
+        # add Verified and remove Newbie
+        await member.add_roles(verifiedRole, reason='Verify Command')
+        await member.remove_roles(newbieRole)
+        logEmbed.description = f'{ctx.author.mention} verified {member.mention}'
+
+        # Send the Embeds
+        await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
         await generalchat.send(embed=welcomeEmbed)
+
+        # log the channel about to be deleted
         logger.info('VERIFY: Deleted Channel {0.name}'.format(channel))
         await channel.send(':white_check_mark:')
         await channel.send('Deleting this channel in 15 seconds.')
-        await asyncio.sleep(15)
 
+        # wait 15 seconds then delete the channel
+        await asyncio.sleep(15)
         await channel.delete()
+
+    # if they don't have the Security role, log that.
     elif securityRole not in ctx.author.roles:
-        logEmbed.description=f'{ctx.author.display_name} tried to use !verify on {member.name} but they do not have ' \
+        logEmbed.description = f'{ctx.author.mention} tried to use !verify on {member.mention} but they do not have ' \
                              f'the {securityRole.name} role'
         await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
         logger.info(f'VERIFY: {ctx.author.display_name} failed to use command on {member.name} because they don\'t have '
                     f'the {securityRole.name} role')
+
+    # if its used in the wrong channel, log that.
     elif ctx.channel.name is not tempName:
-        logEmbed.description = f'{ctx.author.display_name} tried to use !verify on {member.name} in channel ' \
+        logEmbed.description = f'{ctx.author.mention} tried to use !verify on {member.mention} in channel ' \
                                f'#{ctx.channel.name} and this is not an approved channel.'
         await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
 
         logger.info(f'VERIFY: {ctx.author.display_name} failed to use command on {member.name} in an inappropriate'
-                    f'channel, {ctx.channel.name}')
-        print(tempName)
-        print(ctx.channel.name)
+                    f' channel, {ctx.channel.name}')
+
 
 
 #@verify.error
