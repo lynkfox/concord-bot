@@ -12,6 +12,7 @@ VERIFIED = int(os.getenv('VERIFIED_ROLE'))
 MODLOG = int(os.getenv('MOD_CHANNEL'))
 SECURITY = int(os.getenv('SECURITY_ROLE'))
 CHECKPOINT = int(os.getenv('CHECKPOINT_CAT'))
+GENERAL = int(os.getenv('GENERAL_CHAT'))
 
 bot = commands.Bot(command_prefix='!')
 logger = logging.getLogger('discord')
@@ -37,7 +38,7 @@ async def on_error(event, *args, **kwargs):
 @bot.event
 async def on_member_join(member):
     guild = member.guild
-    tempName = str(member)
+    tempName = str(member).replace(' ', '-').replace('#', '').lower()
     mention = member.mention
     securityRole = guild.get_role(int(SECURITY))
 
@@ -73,16 +74,49 @@ async def on_member_join(member):
 async def verify(ctx, member: discord.Member):
     channel = ctx.channel
     verifiedRole = ctx.guild.get_role(VERIFIED)
-    logStatement = '{0.name} verified {1.name}'.format(ctx.author, member)
-    logger.info('VERIFY: {0.name} verified {1.name}'.format(ctx.author, member))
+    logStatement = '{0.display_name} verified {1.name}'.format(ctx.author, member)
+    logger.info('VERIFY: {0.display_name} used verify on {1.name}'.format(ctx.author, member))
+    tempName = str(member).replace(' ', '-').replace('#', '').lower()
+    securityRole = ctx.guild.get_role(int(SECURITY))
+    allowed = False
+    correctChannel = get(ctx.guild.text_channels, name=tempName)
+    generalchat = get(ctx.guild.text_channels, id=GENERAL)
 
-    await member.add_roles(verifiedRole, reason=logStatement)
-    await ctx.guild.get_channel(MODLOG).send(logStatement)
-    await channel.send(':white_check_mark:')
-    await channel.send('Deleting this channel in 15 seconds.')
-    await asyncio.sleep(15)
-    logger.info('VERIFY: Deleted Channel {0.name}'.format(channel))
-    await channel.delete()
+    welcomeEmbed = discord.Embed(title="Welcome!", color=0xBA2100,
+                                 description=f'{member.mention} has joined us. Welcome '
+                                             f'them to their new HOME.'
+                                             f'\n\n{member.display_name} please check '
+                                             f'out #role-request to pick your '
+                                             f'department(s) and focus.')
+    welcomeEmbed.set_thumbnail(url=member.avatar_url)
+
+    logEmbed = discord.Embed(title="Verify Command", color=0xBA2100)
+
+    if securityRole in ctx.author.roles and ctx.channel == correctChannel:
+        await member.add_roles(verifiedRole, reason=logStatement)
+        await ctx.guild.get_channel(MODLOG).send(logStatement)
+        await generalchat.send(embed=welcomeEmbed)
+        logger.info('VERIFY: Deleted Channel {0.name}'.format(channel))
+        await channel.send(':white_check_mark:')
+        await channel.send('Deleting this channel in 15 seconds.')
+        await asyncio.sleep(15)
+
+        await channel.delete()
+    elif securityRole not in ctx.author.roles:
+        logEmbed.description=f'{ctx.author.display_name} tried to use !verify on {member.name} but they do not have ' \
+                             f'the {securityRole.name} role'
+        await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
+        logger.info(f'VERIFY: {ctx.author.display_name} failed to use command on {member.name} because they don\'t have '
+                    f'the {securityRole.name} role')
+    elif ctx.channel.name is not tempName:
+        logEmbed.description = f'{ctx.author.display_name} tried to use !verify on {member.name} in channel ' \
+                               f'#{ctx.channel.name} and this is not an approved channel.'
+        await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
+
+        logger.info(f'VERIFY: {ctx.author.display_name} failed to use command on {member.name} in an inappropriate'
+                    f'channel, {ctx.channel.name}')
+        print(tempName)
+        print(ctx.channel.name)
 
 
 #@verify.error
@@ -92,13 +126,14 @@ async def verify(ctx, member: discord.Member):
 
 
 @bot.command(name='test')
-async def test(ctx):
-    print('test')
-    channel = ctx.channel
-    print(VERIFIED)
-    print(MODLOG)
-    verifiedRole = ctx.guild.get_role(int(VERIFIED))
-    print(channel)
-    print(verifiedRole)
+async def test(ctx, member: discord.Member):
+    welcomeEmbed = discord.Embed(title="Welcome!", color=0xBA2100,)
+    welcomeEmbed.set_thumbnail(url=member.avatar_url)
+    welcomeEmbed.description = f'{ctx.author.display_name} tried to use !verify on {member.name} but they do not have ' \
+                           f'the  role'
+
+    await ctx.channel.send(embed=welcomeEmbed)
+
+
 
 bot.run(TOKEN)
