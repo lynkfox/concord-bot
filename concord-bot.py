@@ -2,10 +2,10 @@ import os
 import logging
 import discord
 import asyncio
-import datetime
 from discord.ext import commands
 from discord.utils import get
 from dotenv import load_dotenv
+import time
 
 # Env Variables for security
 load_dotenv()
@@ -36,7 +36,7 @@ bot.remove_command('help')
 
 @bot.event
 async def on_ready():
-    print('We have logged in as {0.user}'.format(bot))
+    logger.info(f'ON_READY: {bot.user} has logged in.')
 
 
 @bot.event
@@ -56,7 +56,7 @@ async def on_member_join(member):
     mention = member.mention
     securityRole = guild.get_role(int(SECURITY))
 
-    print(f'{member.name} has joined the server.')
+    # log join
     logger.info(f'ON_MEMBER_JOIN: {member.name} has joined the server.')
 
     # Set of permissions for the new channel
@@ -75,10 +75,10 @@ async def on_member_join(member):
     for category in guild.categories:
         if category.id == CHECKPOINT:
             await tempChannel.edit(category=category)
-            # logging
-            print(f'Creating Private Room for Interview, #{tempName} under {category}')
+            # log channel creation
             logger.info(f'ON_MEMBER_JOIN: Channel Created {tempChannel} under {category}')
 
+    # welcome message
     await tempChannel.send(f'{mention}, Welcome! You are new to our server! Here is a private channel for us to '
                            'interview you.')
     await tempChannel.send(f'We take security very seriously here!\n\nOne of our {securityRole.mention} Staff will be '
@@ -87,7 +87,7 @@ async def on_member_join(member):
                            'to HOME, you can speed up the process by posting an in game screenshot of your entire '
                            'character sheet. Thanks!')
 
-    # Server Entry Exit Logging
+    # Server Entry Exit Logging - create the Embed
 
     logEmbed = discord.Embed(title="New Member Joined", color=0x00A71E)
     logEmbed.description = f'{member.mention} ( {member.name} ) has joined the server'
@@ -95,16 +95,18 @@ async def on_member_join(member):
     logEmbed.add_field(name='Private Channel', value=tempName)
     logEmbed.set_thumbnail(url=member.avatar_url)
 
-    # check if account less than 7 days old
-    oneWeekAgo = datetime.date.Today() - datetime.timedelta(days=7)
-    if member.created_at > oneWeekAgo:
-        print(f'{member.name} account is less than 7 days old.')
+    # check if account less than 7 days old - 604800 seconds is 7 days
+    if time.time() - member.created_at.timestamp() < 604800:
+
+        # set log message for file
         logger.info(f'ON_MEMBER_JOIN: {member.name} was created on {member.created_at} - which is less than 7 days ago.')
+
+        # mention security role if the account is less than 7 days old
         securityRole = guild.get_role(int(SECURITY))
         logEmbed.add_field(name='WARNING', value=f'{securityRole.mention} this account is less than 7 days old')
 
+    # add the embed to the joinleave channel and add to the log file
     guild.get_channel(JOINLEAVE).send(embed=logEmbed)
-    print(f'Join Message Sent to {JOINLEAVE} for {member.name}')
     logger.info(f'ON_MEMBER_JOIN: Join Embed pushed to {JOINLEAVE} channel')
 
 @bot.command(name='verify')
