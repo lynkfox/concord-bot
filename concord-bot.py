@@ -106,7 +106,7 @@ async def on_member_join(member):
         logEmbed.add_field(name='WARNING', value=f'{securityRole.mention} this account is less than 7 days old')
 
     # add the embed to the joinleave channel and add to the log file
-    guild.get_channel(JOINLEAVE).send(embed=logEmbed)
+    await guild.get_channel(JOINLEAVE).send(embed=logEmbed)
     logger.info(f'ON_MEMBER_JOIN: Join Embed pushed to {JOINLEAVE} channel')
 
 @bot.command(name='verify')
