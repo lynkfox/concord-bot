@@ -10,13 +10,13 @@ import time
 # Env Variables for security
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-VERIFIED = int(os.getenv('VERIFIED_ROLE'))
-MODLOG = int(os.getenv('MOD_CHANNEL'))
-SECURITY = int(os.getenv('SECURITY_ROLE'))
-CHECKPOINT = int(os.getenv('CHECKPOINT_CAT'))
-GENERAL = int(os.getenv('GENERAL_CHAT'))
-JOINLEAVE = int(os.getenv('ENTRY_EXIT_CHANNEL'))
-NEWB = int(os.getenv('NEWBIE_ROLE'))
+VERIFIED = os.getenv('VERIFIED_ROLE')
+MODLOG = os.getenv('MOD_CHANNEL')
+SECURITY = os.getenv('SECURITY_ROLE')
+CHECKPOINT = os.getenv('CHECKPOINT_CAT')
+GENERAL = os.getenv('GENERAL_CHAT')
+JOINLEAVE = os.getenv('ENTRY_EXIT_CHANNEL')
+NEWB = os.getenv('NEWBIE_ROLE')
 
 # logger setup
 logger = logging.getLogger('discord')
@@ -30,9 +30,6 @@ bot = commands.Bot(command_prefix='!')
 
 # remove the default help command
 bot.remove_command('help')
-
-
-
 
 @bot.event
 async def on_ready():
@@ -54,7 +51,7 @@ async def on_member_join(member):
     guild = member.guild
     tempName = str(member).replace(' ', '-').replace('#', '').lower()
     mention = member.mention
-    securityRole = guild.get_role(int(SECURITY))
+    securityRole = guild.get_role(id=SECURITY)
 
     # log join
     logger.info(f'ON_MEMBER_JOIN: {member.name} has joined the server.')
@@ -102,7 +99,6 @@ async def on_member_join(member):
         logger.info(f'ON_MEMBER_JOIN: {member.name} was created on {member.created_at} - which is less than 7 days ago.')
 
         # mention security role if the account is less than 7 days old
-        securityRole = guild.get_role(int(SECURITY))
         logEmbed.add_field(name='WARNING', value=f'{securityRole.mention} this account is less than 7 days old')
 
     # add the embed to the joinleave channel and add to the log file
@@ -112,11 +108,11 @@ async def on_member_join(member):
 @bot.command(name='verify')
 async def verify(ctx, member: discord.Member):
     channel = ctx.channel
-    verifiedRole = ctx.guild.get_role(VERIFIED)
-    newbieRole = ctx.guild.get_role(NEWB)
+    verifiedRole = ctx.guild.get_role(id=VERIFIED)
+    newbieRole = ctx.guild.get_role(id=NEWB)
     logger.info('VERIFY: {0.display_name} used verify on {1.name}'.format(ctx.author, member))
     tempName = str(member).replace(' ', '-').replace('#', '').lower()
-    securityRole = ctx.guild.get_role(int(SECURITY))
+    securityRole = ctx.guild.get_role(id=SECURITY)
     allowed = False
     correctChannel = get(ctx.guild.text_channels, name=tempName)
     generalchat = get(ctx.guild.text_channels, id=GENERAL)
@@ -199,7 +195,7 @@ async def command(ctx):
     helpEmbed.add_field(name="!buildcalc",
                         value='Link to Lynk\'s Build Calculator for determining how much you need to mine')
 
-    if ctx.guild.get_role(int(VERIFIED)) not in author.roles:
+    if ctx.guild.get_role(id=VERIFIED) not in author.roles:
         return
     else:
         await ctx.channel.send(f'Bot Commands are on their way to your DM\'s {author.mention}')
@@ -211,7 +207,7 @@ async def command(ctx, message):
     author = ctx.author
     generalchat = get(ctx.guild.text_channels, id=GENERAL)
 
-    if author.id == int(182249916087664640):
+    if author.id == 182249916087664640:
         await generalchat.send(message)
 
 
