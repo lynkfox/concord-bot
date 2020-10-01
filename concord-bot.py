@@ -7,6 +7,7 @@ from discord.ext import commands
 from discord.utils import get
 from dotenv import load_dotenv
 
+# Env Variables for security
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 VERIFIED = int(os.getenv('VERIFIED_ROLE'))
@@ -17,12 +18,21 @@ GENERAL = int(os.getenv('GENERAL_CHAT'))
 JOINLEAVE = int(os.getenv('ENTRY_EXIT_CHANNEL'))
 NEWB = int(os.getenv('NEWBIE_ROLE'))
 
-bot = commands.Bot(command_prefix='!')
+# logger setup
 logger = logging.getLogger('discord')
 logging.basicConfig(level=logging.INFO)
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
+
+# set the command prefix to bang
+bot = commands.Bot(command_prefix='!')
+
+# remove the default help command
+bot.remove_command('help')
+
+
+
 
 @bot.event
 async def on_ready():
@@ -89,10 +99,6 @@ async def on_member_join(member):
     guild.get_channel(JOINLEAVE).send(embed=logEmbed)
 
 
-
-
-
-
 @bot.command(name='verify')
 async def verify(ctx, member: discord.Member):
     channel = ctx.channel
@@ -147,10 +153,11 @@ async def verify(ctx, member: discord.Member):
     # if they don't have the Security role, log that.
     elif securityRole not in ctx.author.roles:
         logEmbed.description = f'{ctx.author.mention} tried to use !verify on {member.mention} but they do not have ' \
-                             f'the {securityRole.name} role'
+                               f'the {securityRole.name} role'
         await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
-        logger.info(f'VERIFY: {ctx.author.display_name} failed to use command on {member.name} because they don\'t have '
-                    f'the {securityRole.name} role')
+        logger.info(
+            f'VERIFY: {ctx.author.display_name} failed to use command on {member.name} because they don\'t have '
+            f'the {securityRole.name} role')
 
     # if its used in the wrong channel, log that.
     elif ctx.channel.name is not tempName:
@@ -162,22 +169,91 @@ async def verify(ctx, member: discord.Member):
                     f' channel, {ctx.channel.name}')
 
 
-
-#@verify.error
-#async def verify_error(ctx, error):
+# @verify.error
+# async def verify_error(ctx, error):
 #   if isinstance(error, commands.BadArgument):
 #        await ctx.send('I could not find that member... (be sure to use @Name and use the quick mention!)')
+
+@bot.command(aliases=['bot', 'commands', 'fuckingbot', 'help'])
+async def command(ctx):
+    author = ctx.author
+    guild = ctx.guild
+
+    helpEmbed = discord.Embed(title="CONCORD Bot Help", color=0xFFFFFF)
+    helpEmbed.set_thumbnail(url=guild.icon_url)
+    helpEmbed.description = 'These are the Following Commands that you can use on HOME at the Associate leve'
+    helpEmbed.add_field(name="!command | !commands", value='This command')
+    helpEmbed.add_field(name="!industry | !military",
+                        value='Links to the Spreadsheets where we keep track of our members skills')
+    helpEmbed.add_field(name="!buyback", value='Link to the Spreadsheet that contains the Ore Buyback Form')
+    helpEmbed.add_field(name="!buildcalc",
+                        value='Link to Lynk\'s Build Calculator for determining how much you need to mine')
+
+    if ctx.guild.get_role(int(VERIFIED)) not in author.roles:
+        return
+    else:
+        await ctx.channel.send(f'Bot Commands are on their way to your DM\'s {author.mention}')
+        await author.send(embed=helpEmbed)
+
+# Command for Alts - not ready yet.
+"""
+@bot.command(name='alt')
+async def alt(ctx, message):
+
+    _command = "Not"
+    mainName = ctx.author.display_name
+    mainID = 0
+    alts = []
+
+    fullSplits = message.Split(">")
+
+    if fullSplits is None or fullSplits.len() <= 1:
+        print('Alts command did not have enough arguments')
+        return
+
+    if 'add' in fullSplits[0].lower():
+        print('Adding Alts')
+        _command = "add"
+        return
+
+    elif 'remove' in fullSplits[0].lower():
+        print('Removing Alts')
+        _command = "remove"
+        return
+    else:
+        ctx.channel.send("```!alt [add|remove] - missing command type.```")
+
+    IDOfMain = fullSplits[0].Split()
+
+    if mainID is None or mainID.len() <= 1:
+        # Doesn't have id #
+        return
+    elif mainID[-1].isnumeric():
+        # store main ID
+        mainID = mainID[-1]
+        fullSplits.remove(0)
+
+    for altInfo in fullSplits:
+        nameAndID = altInfo.Split()
+        altID
+        index#
+        for word in nameAndID:
+            # find the ID #
+            if word.isnumeric():
+                altID = word
+
+
+
 
 
 @bot.command(name='test')
 async def test(ctx, member: discord.Member):
-    welcomeEmbed = discord.Embed(title="Welcome!", color=0xBA2100,)
+    welcomeEmbed = discord.Embed(title="Welcome!", color=0xBA2100, )
     welcomeEmbed.set_thumbnail(url=member.avatar_url)
     welcomeEmbed.description = f'{ctx.author.display_name} tried to use !verify on {member.name} but they do not have ' \
-                           f'the  role'
+                               f'the  role'
 
     await ctx.channel.send(embed=welcomeEmbed)
-
-
+"""
 
 bot.run(TOKEN)
