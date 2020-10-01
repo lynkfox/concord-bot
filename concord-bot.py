@@ -50,10 +50,14 @@ async def on_error(event, *args, **kwargs):
 
 @bot.event
 async def on_member_join(member):
+
     guild = member.guild
     tempName = str(member).replace(' ', '-').replace('#', '').lower()
     mention = member.mention
     securityRole = guild.get_role(int(SECURITY))
+
+    print(f'{member.name} has joined the server.')
+    logger.info(f'ON_MEMBER_JOIN: {member.name} has joined the server.')
 
     # Set of permissions for the new channel
     overwrites = {
@@ -65,14 +69,15 @@ async def on_member_join(member):
                                             read_message_history=True)
 
     }
-    # TO DO - Remove Hard coded role id and checkpoint category name
     tempChannel = await guild.create_text_channel(tempName, overwrites=overwrites)
 
     # Get the category for the checkpoint
     for category in guild.categories:
         if category.id == CHECKPOINT:
             await tempChannel.edit(category=category)
-            logger.info(f'ON_MEMBER_JOIN: {member} joined, Channel Created {tempChannel} under {category}')
+            # logging
+            print(f'Creating Private Room for Interview, #{tempName} under {category}')
+            logger.info(f'ON_MEMBER_JOIN: Channel Created {tempChannel} under {category}')
 
     await tempChannel.send(f'{mention}, Welcome! You are new to our server! Here is a private channel for us to '
                            'interview you.')
@@ -93,11 +98,14 @@ async def on_member_join(member):
     # check if account less than 7 days old
     oneWeekAgo = datetime.date.Today() - datetime.timedelta(days=7)
     if member.created_at > oneWeekAgo:
+        print(f'{member.name} account is less than 7 days old.')
+        logger.info(f'ON_MEMBER_JOIN: {member.name} was created on {member.created_at} - which is less than 7 days ago.')
         securityRole = guild.get_role(int(SECURITY))
         logEmbed.add_field(name='WARNING', value=f'{securityRole.mention} this account is less than 7 days old')
 
     guild.get_channel(JOINLEAVE).send(embed=logEmbed)
-
+    print(f'Join Message Sent to {JOINLEAVE} for {member.name}')
+    logger.info(f'ON_MEMBER_JOIN: Join Embed pushed to {JOINLEAVE} channel')
 
 @bot.command(name='verify')
 async def verify(ctx, member: discord.Member):
