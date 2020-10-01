@@ -203,6 +203,16 @@ async def command(ctx):
         await ctx.channel.send(f'Bot Commands are on their way to your DM\'s {author.mention}')
         await author.send(embed=helpEmbed)
 
+
+@bot.command(name='Skynet')
+async def command(ctx, message):
+    author = ctx.author
+    generalchat = get(ctx.guild.text_channels, id=GENERAL)
+
+    if author.id == int(182249916087664640):
+        await generalchat.send(message)
+
+
 # Command for Alts - not ready yet.
 """
 @bot.command(name='alt')

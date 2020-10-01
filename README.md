@@ -10,8 +10,7 @@ You will need to get a discord authentication token for bots from discord.com/de
 
 you will need to run
 
-pip install -U discord
-pip install -U python-dotenv
+pip install -U discord python-dotenv
 
 a .env file will need to be created with all the environment variables. Excepting the Discord_token all the env variables are ID's (int)
 
@@ -39,12 +38,13 @@ It will remove the NEWBIE_ROLE as well. It will also put a welcome message in th
 
 # Forthcoming
 
-!commands
-
 (alt commands will require some connection to a database)
 
 !alt main ID (assumes Discord Display Name is main character name)
 
 !alt [add|remove] Name|Number - Name|Number - Name|Number ect
 
-!al
+!channelPass - in game channel passwords
+
+!changePass [channelName] [newpass]
+
