@@ -81,8 +81,8 @@ async def on_member_join(member):
     await tempChannel.send(f'We take security very seriously here!\n\nOne of our {securityRole.mention} Staff will be '
                            'along to aid you soon. In the meantime, check out the #welcome-to-home channel and select '
                            'your reason for being here. Then you can chat in the #welcome-lobby\n\nIf You are applying '
-                           'to HOME, you can speed up the process by posting an in game screenshot of your entire '
-                           'character sheet. Thanks!')
+                           'to HOME, you can speed up the process by posting an in game screenshot of your character'
+                           'login screen of all your accounts. Thanks!')
 
     # Server Entry Exit Logging - create the Embed
 
