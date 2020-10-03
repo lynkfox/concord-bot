@@ -105,6 +105,8 @@ async def on_member_join(member):
     await guild.get_channel(JOINLEAVE).send(embed=logEmbed)
     logger.info(f'ON_MEMBER_JOIN: Join Embed pushed to {JOINLEAVE} channel')
 
+
+
 @bot.command(name='verify')
 async def verify(ctx, member: discord.Member):
     channel = ctx.channel
@@ -113,7 +115,6 @@ async def verify(ctx, member: discord.Member):
     logger.info('VERIFY: {0.display_name} used verify on {1.name}'.format(ctx.author, member))
     tempName = str(member).replace(' ', '-').replace('#', '').lower()
     securityRole = ctx.guild.get_role(id=SECURITY)
-    allowed = False
     correctChannel = get(ctx.guild.text_channels, name=tempName)
     generalchat = get(ctx.guild.text_channels, id=GENERAL)
 
@@ -125,6 +126,34 @@ async def verify(ctx, member: discord.Member):
                                              f'out #role-request to pick your '
                                              f'department(s) and focus.')
     welcomeEmbed.set_thumbnail(url=member.avatar_url)
+
+    # Create a You've Joined, Need to Know info Embed
+
+    newPlayerEmbed1 = discord.Embed(title="Congrats! You've been accepted into HOME", color=0x00A71E,
+                                   description=f'{member.display_name} here are a few things you should know now that '
+                                               f'you\'ve joined HOME \n\n' \
+                                               f'**Here are some useful commands:\n\n !commands - get a help dialog from'
+                                               f' CONCORD-Bot\n\n' \
+                                               f'!ghdiscord - the link to join the Golden Horde Discord. You should do '
+                                               f'this soon!\n\n'
+                                               f'!channelPass - the in-game channels used for Defense/Alerts/Coordination'
+                                               f'\n\nThe Golden Horde has a Charter of rules. Its long, but it is '
+                                               f'enforced. You are expected to know it!\n\n'
+                                               f'((Link to Charter Document))\n\n'
+                                               f'If you are interested, join our HEMP Program - Corporation Miners who '
+                                               f'agree to donate an amount of ore per week in exchange for a free ship '
+                                               f'and a new one if you loose it! (subject to rules and stipulations)')
+    newPlayerEmbed2 = discord.Embed(title="New Player Orientation pt 2",color=0x00A71E,
+                                    description=f'The quick and dirty you should know:\n\n'
+                                                f'There are rules to claiming Anoms and Loot. Section X.#.#.#\n\n'
+                                                f'There are no claims to mining. We all chew rocks together. '
+                                                f'Section X.#.#.# \n\n'
+                                                f'DO NOT Kill bases without Express Permission. This is an offense '
+                                                f'considered HIGH TREASON. Leadership will decide when to cull a '
+                                                f'base\n\n')
+
+
+
 
     # Create the MODLOG channel embed
     logEmbed = discord.Embed(title="Verify Command", color=0xBA2100)
@@ -146,6 +175,8 @@ async def verify(ctx, member: discord.Member):
         # Send the Embeds
         await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
         await generalchat.send(embed=welcomeEmbed)
+        await member.send(embed=newPlayerEmbed1)
+        await member.send(embed=newPlayerEmbed2)
 
         # log the channel about to be deleted
         logger.info('VERIFY: Deleted Channel {0.name}'.format(channel))
@@ -172,6 +203,66 @@ async def verify(ctx, member: discord.Member):
         await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
 
         logger.info(f'VERIFY: {ctx.author.display_name} failed to use command on {member.name} in an inappropriate'
+                    f' channel, {ctx.channel.name}')
+
+
+@bot.command(name="reject")
+async def reject(ctx, member: discord.member):
+    channel = ctx.channel
+    logger.info('REJECT: {0.display_name} used verify on {1.name}'.format(ctx.author, member))
+    tempName = str(member).replace(' ', '-').replace('#', '').lower()
+    securityRole = ctx.guild.get_role(id=SECURITY)
+    correctChannel = get(ctx.guild.text_channels, name=tempName)
+
+    # Create the MODLOG channel embed
+    logEmbed = discord.Embed(title="Verify Command", color=0xBA2100)
+
+    # create the Reject DM Embed
+    rejectEmbed = discord.Embed(title="Sorry!", description="Thank's for checking out HOME. Due to operational security "
+                                                            "requirements, we have removed your access to our server. "
+                                                            "If in the future you would like to apply again, please feel"
+                                                            "free to do so. Have a great day, and Fly Safe, Pilot! o7! ")
+
+    # break the process if they forgot to include an target
+    if member is None:
+        await channel.send('```Need the @name of the person you are attempting to verify```')
+        return
+
+    # Check to make sure the author has the SECURITY_ROLE and is using it in the private channel that the @mention
+    # indicates
+    if securityRole in ctx.author.roles and ctx.channel == correctChannel:
+
+        logEmbed.description = f'{ctx.author.mention} rejected {member.mention}'
+
+        # Send the Embeds
+        await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
+        await member.send(embed=rejectEmbed)
+
+        # log the channel about to be deleted
+        logger.info('REJECT: Deleted Channel {0.name}'.format(channel))
+        await channel.send(':x:')
+        await channel.send('Deleting this channel in 15 seconds.')
+
+        # wait 15 seconds then delete the channel
+        await asyncio.sleep(15)
+        await channel.delete()
+
+    # if they don't have the Security role, log that.
+    elif securityRole not in ctx.author.roles:
+        logEmbed.description = f'{ctx.author.mention} tried to use !reject on {member.mention} but they do not have ' \
+                               f'the {securityRole.name} role'
+        await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
+        logger.info(
+            f'REJECT: {ctx.author.display_name} failed to use command on {member.name} because they don\'t have '
+            f'the {securityRole.name} role')
+
+    # if its used in the wrong channel, log that.
+    elif ctx.channel.name is not tempName:
+        logEmbed.description = f'{ctx.author.mention} tried to use !reject on {member.mention} in channel ' \
+                               f'#{ctx.channel.name} and this is not an approved channel.'
+        await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
+
+        logger.info(f'REJECT: {ctx.author.display_name} failed to use command on {member.name} in an inappropriate'
                     f' channel, {ctx.channel.name}')
 
 
