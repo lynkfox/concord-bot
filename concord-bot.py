@@ -9,14 +9,16 @@ import time
 
 # Env Variables for security
 load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-VERIFIED = os.getenv('VERIFIED_ROLE')
-MODLOG = os.getenv('MOD_CHANNEL')
-SECURITY = os.getenv('SECURITY_ROLE')
-CHECKPOINT = os.getenv('CHECKPOINT_CAT')
-GENERAL = os.getenv('GENERAL_CHAT')
-JOINLEAVE = os.getenv('ENTRY_EXIT_CHANNEL')
-NEWB = os.getenv('NEWBIE_ROLE')
+TOKEN = os.getenv('DISCORD_TOKEN')  # Your Discord Bot Token
+VERIFIED = int(os.getenv('VERIFIED_ROLE')) # The Role ID that allows access into the server
+MODLOG = int(os.getenv('MOD_CHANNEL')) # The ID of the channel that you want the bot to log to
+SECURITY = int(os.getenv('SECURITY_ROLE')) # The ID Of the role that can !verify or !reject
+CHECKPOINT = int(os.getenv('CHECKPOINT_CAT')) # The ID of the category the private channel should be in
+GENERAL = int(os.getenv('GENERAL_CHAT')) # The ID of the general chat for a welcome aboard message
+JOINLEAVE = int(os.getenv('ENTRY_EXIT_CHANNEL')) # the ID of the channel where Join/Leave message go
+NEWB = int(os.getenv('NEWBIE_ROLE')) # The ID of the role that is auto assigned on join
+APPLICANT = int(os.getenv('APPLICANT_ROLE')) # the ID of the role that says they are an applicant
+DIPLOMAT = int(os.getenv('DIPLOMAT_ROLE')) # The ID of the role for diplomats.
 
 # logger setup
 logger = logging.getLogger('discord')
@@ -35,7 +37,6 @@ bot.remove_command('help')
 async def on_ready():
     logger.info(f'ON_READY: {bot.user} has logged in.')
 
-
 @bot.event
 async def on_error(event, *args, **kwargs):
     with open('err.log', 'a') as f:
@@ -44,79 +45,114 @@ async def on_error(event, *args, **kwargs):
         else:
             raise
 
+@bot.event
+async def on_member_remove(member):
+    guild = member.guild
+    joinLeaveChannel = guild.get_channel(JOINLEAVE)
+    memberRoles = member.roles
+    memberRolesListed = ""
+
+    # Remove @everyone from the role list.
+    memberRoles.pop(0)
+
+    logger.info(f'ON_MEMBER_REMOVE: {member.name} has left the server.')
+
+    # generate a single string of all the roles as mentionables.
+    for role in memberRoles:
+        memberRolesListed=memberRolesListed + " " + role.mention
+
+    logEmbed = discord.Embed(title="Member has Left", color=0xB81604)
+    logEmbed.description = f'{member.mention} ( {member.name} ) has left the server'
+    logEmbed.add_field(name='Roles', value=memberRolesListed)
+    logEmbed.set_thumbnail(url=member.avatar_url)
+
+    await joinLeaveChannel.send(embed=logEmbed)
+    logger.info(f'ON_MEMBER_REMOVE: Leave Embed pushed to {joinLeaveChannel} channel')
+
 
 @bot.event
 async def on_member_join(member):
-
     guild = member.guild
-    tempName = str(member).replace(' ', '-').replace('#', '').lower()
-    mention = member.mention
-    securityRole = guild.get_role(id=SECURITY)
+    privateChannelName=str(member).replace(' ', '-').replace('#', '-').lower()
+    joinLeaveChannel = guild.get_channel(JOINLEAVE)
+    newbieRole = guild.get_role(NEWB)
+    checkpointCategory = guild.get_channel(CHECKPOINT)
+    securityTeam = guild.get_role(SECURITY)
+
 
     # log join
-    logger.info(f'ON_MEMBER_JOIN: {member.name} has joined the server.')
+    logger.info(f'ON_MEMBER_JOIN: {member.name} has joined the server. Private room of {privateChannelName} created')
+
+    # Give the member the 'Just Joined' role
+    await member.add_roles(newbieRole)
 
     # Set of permissions for the new channel
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=False),
         guild.me: discord.PermissionOverwrite(read_messages=True),
-        securityRole: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True,
+        securityTeam: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True,
                                                   read_message_history=True),
         member: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True,
                                             read_message_history=True)
 
     }
-    tempChannel = await guild.create_text_channel(tempName, overwrites=overwrites)
 
-    # Get the category for the checkpoint
-    for category in guild.categories:
-        if category.id == CHECKPOINT:
-            await tempChannel.edit(category=category)
-            # log channel creation
-            logger.info(f'ON_MEMBER_JOIN: Channel Created {tempChannel} under {category}')
-
+    privateChannel = await guild.create_text_channel(privateChannelName, overwrites=overwrites,
+                                                     category=checkpointCategory)
     # welcome message
-    await tempChannel.send(f'{mention}, Welcome! You are new to our server! Here is a private channel for us to '
-                           'interview you.')
-    await tempChannel.send(f'We take security very seriously here!\n\nOne of our {securityRole.mention} Staff will be '
-                           'along to aid you soon. In the meantime, check out the #welcome-to-home channel and select '
-                           'your reason for being here. Then you can chat in the #welcome-lobby\n\nIf You are applying '
-                           'to HOME, you can speed up the process by posting an in game screenshot of your character'
-                           'login screen of all your accounts. Thanks!')
+    await privateChannel.send(f'{member.mention}, Welcome! You are new to our server! Here is a private channel for us '
+                              f'to interview you.')
+    await privateChannel.send(f'We take security very seriously here!\n\nOne of our {securityTeam.mention} team members '
+                              f'will be along shortly to interview you.\n\nIn the mean time stop by #welcome-to-home '
+                              f'in order to choose why you\'ve come to HOME and be allowed to chat in #welcome-lobby. '
+                              f'If you are here to Apply to join HOME, you can speed up the process by leaving a '
+                              f'screenshot of your character select screen for all of your accounts.\n\nThanks for your'
+                              f' patience and welcome to HOME!')
 
     # Server Entry Exit Logging - create the Embed
-
     logEmbed = discord.Embed(title="New Member Joined", color=0x00A71E)
     logEmbed.description = f'{member.mention} ( {member.name} ) has joined the server'
     logEmbed.add_field(name='Create Date', value=member.created_at)
-    logEmbed.add_field(name='Private Channel', value=tempName)
+    logEmbed.add_field(name='Private Channel', value=privateChannelName)
     logEmbed.set_thumbnail(url=member.avatar_url)
 
     # check if account less than 7 days old - 604800 seconds is 7 days
     if time.time() - member.created_at.timestamp() < 604800:
-
         # set log message for file
-        logger.info(f'ON_MEMBER_JOIN: {member.name} was created on {member.created_at} - which is less than 7 days ago.')
+        logger.info(
+            f'ON_MEMBER_JOIN: {member.name} was created on {member.created_at} - which is less than 7 days ago.')
 
         # mention security role if the account is less than 7 days old
-        logEmbed.add_field(name='WARNING', value=f'{securityRole.mention} this account is less than 7 days old')
+        logEmbed.add_field(name='WARNING', value=f'{securityTeam.mention} this account is less than 7 days old')
 
     # add the embed to the joinleave channel and add to the log file
-    await guild.get_channel(JOINLEAVE).send(embed=logEmbed)
-    logger.info(f'ON_MEMBER_JOIN: Join Embed pushed to {JOINLEAVE} channel')
+    await joinLeaveChannel.send(embed=logEmbed)
+    logger.info(f'ON_MEMBER_JOIN: Join Embed pushed to {joinLeaveChannel} channel')
 
 
-
-@bot.command(name='verify')
+@bot.command(name="verify")
 async def verify(ctx, member: discord.Member):
-    channel = ctx.channel
-    verifiedRole = ctx.guild.get_role(id=VERIFIED)
-    newbieRole = ctx.guild.get_role(id=NEWB)
-    logger.info('VERIFY: {0.display_name} used verify on {1.name}'.format(ctx.author, member))
-    tempName = str(member).replace(' ', '-').replace('#', '').lower()
-    securityRole = ctx.guild.get_role(id=SECURITY)
-    correctChannel = get(ctx.guild.text_channels, name=tempName)
-    generalchat = get(ctx.guild.text_channels, id=GENERAL)
+    guild = ctx.guild
+    currentChannel = ctx.channel
+    author = ctx.author
+    privateChannelName=str(member).replace(' ', '-').replace('#', '-').lower()
+    modLogChannel = guild.get_channel(MODLOG)
+    correctPrivateChannel = get(ctx.guild.text_channels, name=privateChannelName)
+    generalChannel = guild.get_channel(GENERAL)
+    securityTeam = guild.get_role(SECURITY)
+    verifiedRole = guild.get_role(VERIFIED)
+    newbieRole = guild.get_role(NEWB)
+    applicantRole = guild.get_role(APPLICANT)
+    validUseOfCommand = False
+
+    # break the process if they forgot to include an target
+    if member is None:
+        await currentChannel.send('```Need the @name of the person you are attempting to verify```')
+        return
+
+    # determine if this is a valid location to use the command by a valid role
+    if securityTeam in author.roles and currentChannel == correctPrivateChannel:
+        validUseOfCommand = True
 
     # Create a Welcome Embed for the General Chat channel
     welcomeEmbed = discord.Embed(title="Welcome!", color=0xBA2100,
@@ -129,147 +165,113 @@ async def verify(ctx, member: discord.Member):
 
     # Create a You've Joined, Need to Know info Embed
 
-    newPlayerEmbed1 = discord.Embed(title="Congrats! You've been accepted into HOME", color=0x00A71E,
-                                   description=f'{member.display_name} here are a few things you should know now that '
-                                               f'you\'ve joined HOME \n\n' \
-                                               f'**Here are some useful commands:\n\n !commands - get a help dialog from'
-                                               f' CONCORD-Bot\n\n' \
-                                               f'!ghdiscord - the link to join the Golden Horde Discord. You should do '
-                                               f'this soon!\n\n'
-                                               f'!channelPass - the in-game channels used for Defense/Alerts/Coordination'
-                                               f'\n\nThe Golden Horde has a Charter of rules. Its long, but it is '
-                                               f'enforced. You are expected to know it!\n\n'
-                                               f'((Link to Charter Document))\n\n'
-                                               f'If you are interested, join our HEMP Program - Corporation Miners who '
-                                               f'agree to donate an amount of ore per week in exchange for a free ship '
-                                               f'and a new one if you loose it! (subject to rules and stipulations)')
-    newPlayerEmbed2 = discord.Embed(title="New Player Orientation pt 2",color=0x00A71E,
+    newPlayerEmbed1 = discord.Embed(title="Congrats! You've been accepted into HOME", color=0xB81604,
+                                    description=f'{member.display_name} here are a few things you should know now that '
+                                                f'you\'ve joined HOME \n\n')
+    newPlayerEmbed1.add_field(name="Useful Commands", value="Some information for you to know", inline=True)
+    newPlayerEmbed1.add_field(name="!commands", value="A list of many commands available between our Bots here.")
+    newPlayerEmbed1.add_field(name="!channelPass", value="The in game channel names and most recent passwords.")
+
+    newPlayerEmbed2 = discord.Embed(title="The Golden Horde Charter", color=0xFCC603,
+                                    description="The Golden Horde Charter (link is forthcoming)\n\n"
+                                                "This is a big document, once its finalized, and it will have all the "
+                                                "rules every member Corporation of the Golden Horde Alliance is "
+                                                "expected to follow. Please find some time to read through it when you"
+                                                "can.")
+    newPlayerEmbed3 = discord.Embed(title="Quick And Dirty - Important Charter Rules", color=0xB81604,
                                     description=f'The quick and dirty you should know:\n\n'
-                                                f'There are rules to claiming Anoms and Loot. Section X.#.#.#\n\n'
+                                                f'There are rules to claiming Anoms and Loot. ( Section X.#.#.# )\n\n'
                                                 f'There are no claims to mining. We all chew rocks together. '
-                                                f'Section X.#.#.# \n\n'
+                                                f'( Section X.#.#.# ) \n\n'
                                                 f'DO NOT Kill bases without Express Permission. This is an offense '
                                                 f'considered HIGH TREASON. Leadership will decide when to cull a '
                                                 f'base\n\n')
 
-
-
-
     # Create the MODLOG channel embed
-    logEmbed = discord.Embed(title="Verify Command", color=0xBA2100)
+    logEmbed = discord.Embed(title="Verify Command Used:", color=0xBA2100)
 
-    # break the process if they forgot to include an target
-    if member is None:
-        await channel.send('```Need the @name of the person you are attempting to verify```')
-        return
-
-    # Check to make sure the author has the SECURITY_ROLE and is using it in the private channel that the @mention
-    # indicates
-    if securityRole in ctx.author.roles and ctx.channel == correctChannel:
-
+    if validUseOfCommand == True:
         # add Verified and remove Newbie
         await member.add_roles(verifiedRole, reason='Verify Command')
         await member.remove_roles(newbieRole)
+        await member.remove_roles(applicantRole)
         logEmbed.description = f'{ctx.author.mention} verified {member.mention}'
 
-        # Send the Embeds
-        await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
-        await generalchat.send(embed=welcomeEmbed)
+        # Send the Welcome and New Associate Embeds
+        await generalChannel.send(embed=welcomeEmbed)
         await member.send(embed=newPlayerEmbed1)
+        await member.send("https://discord.gg/3XqEYZfhttps://discord.gg/3XqEYZf")
         await member.send(embed=newPlayerEmbed2)
+        await member.send(embed=newPlayerEmbed3)
 
         # log the channel about to be deleted
-        logger.info('VERIFY: Deleted Channel {0.name}'.format(channel))
-        await channel.send(':white_check_mark:')
-        await channel.send('Deleting this channel in 15 seconds.')
+        logger.info(f'VERIFY: Deleted Channel {currentChannel}')
+        await currentChannel.send(':white_check_mark:')
+        await currentChannel.send('Deleting this channel in 15 seconds.')
 
         # wait 15 seconds then delete the channel
         await asyncio.sleep(15)
-        await channel.delete()
-
-    # if they don't have the Security role, log that.
-    elif securityRole not in ctx.author.roles:
-        logEmbed.description = f'{ctx.author.mention} tried to use !verify on {member.mention} but they do not have ' \
-                               f'the {securityRole.name} role'
+        await currentChannel.delete()
+    else:
+        logEmbed.description = f'{ctx.author.mention} tried to use !verify on {member.mention} in {currentChannel}.\n\n' \
+                               f'They either do not have the proper permissions or it was an invalid channel'
         await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
-        logger.info(
-            f'VERIFY: {ctx.author.display_name} failed to use command on {member.name} because they don\'t have '
-            f'the {securityRole.name} role')
+        logger.info(f'VERIFY: {securityTeam} role not found or {currentChannel} is not valid!')
 
-    # if its used in the wrong channel, log that.
-    elif ctx.channel.name is not tempName:
-        logEmbed.description = f'{ctx.author.mention} tried to use !verify on {member.mention} in channel ' \
-                               f'#{ctx.channel.name} and this is not an approved channel.'
-        await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
-
-        logger.info(f'VERIFY: {ctx.author.display_name} failed to use command on {member.name} in an inappropriate'
-                    f' channel, {ctx.channel.name}')
-
+    await modLogChannel.send(embed=logEmbed)
 
 @bot.command(name="reject")
-async def reject(ctx, member: discord.member):
-    channel = ctx.channel
-    logger.info('REJECT: {0.display_name} used verify on {1.name}'.format(ctx.author, member))
-    tempName = str(member).replace(' ', '-').replace('#', '').lower()
-    securityRole = ctx.guild.get_role(id=SECURITY)
-    correctChannel = get(ctx.guild.text_channels, name=tempName)
-
-    # Create the MODLOG channel embed
-    logEmbed = discord.Embed(title="Verify Command", color=0xBA2100)
-
-    # create the Reject DM Embed
-    rejectEmbed = discord.Embed(title="Sorry!", description="Thank's for checking out HOME. Due to operational security "
-                                                            "requirements, we have removed your access to our server. "
-                                                            "If in the future you would like to apply again, please feel"
-                                                            "free to do so. Have a great day, and Fly Safe, Pilot! o7! ")
+async def reject(ctx, member: discord.Member):
+    guild = ctx.guild
+    currentChannel = ctx.channel
+    author = ctx.author
+    privateChannelName=str(member).replace(' ', '-').replace('#', '-').lower()
+    joinLeaveChannel = guild.get_channel(JOINLEAVE)
+    modLogChannel = guild.get_channel(MODLOG)
+    correctPrivateChannel = get(ctx.guild.text_channels, name=privateChannelName)
+    securityTeam = guild.get_role(SECURITY)
+    validUseOfCommand = False
 
     # break the process if they forgot to include an target
     if member is None:
-        await channel.send('```Need the @name of the person you are attempting to verify```')
+        await currentChannel.send('```Need the @name of the person you are attempting to verify```')
         return
 
-    # Check to make sure the author has the SECURITY_ROLE and is using it in the private channel that the @mention
-    # indicates
-    if securityRole in ctx.author.roles and ctx.channel == correctChannel:
+    # determine if this is a valid location to use the command by a valid role
+    if securityTeam in author.roles and currentChannel == correctPrivateChannel:
+        validUseOfCommand = True
 
-        logEmbed.description = f'{ctx.author.mention} rejected {member.mention}'
+    # Create the MODLOG channel embed
+    logEmbed = discord.Embed(title="Reject Command Used;", color=0xBA2100)
 
-        # Send the Embeds
-        await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
-        await member.send(embed=rejectEmbed)
+    if validUseOfCommand == True:
 
-        # log the channel about to be deleted
-        logger.info('REJECT: Deleted Channel {0.name}'.format(channel))
-        await channel.send(':x:')
-        await channel.send('Deleting this channel in 15 seconds.')
+        # DM the member
+        await member.send("Thank\'s for your interest in HOME. Either you or we decided this wasn\'t the place to "
+                          "rest your head (or you didn\'t respond to inquiries for the interview process). "
+                          "No hard feelings! Perhaps you\'ll find your HOME elsewhere!")
+
+        # Logging
+        logger.info(f'REJECT: Deleted Channel {currentChannel}, DM sent to {member}')
+        logEmbed.description = f'{ctx.author.mention} rejected {member.mention}. They will be kicked from the server ' \
+                               f'in 15 seconds.'
+
+        await currentChannel.send(':x:')
+        await currentChannel.send('Deleting this channel in 15 seconds.')
 
         # wait 15 seconds then delete the channel
         await asyncio.sleep(15)
-        await channel.delete()
+        await currentChannel.delete()
+        await guild.kick(member, reason=f"Reject Command Used by {author.name}")
 
-    # if they don't have the Security role, log that.
-    elif securityRole not in ctx.author.roles:
-        logEmbed.description = f'{ctx.author.mention} tried to use !reject on {member.mention} but they do not have ' \
-                               f'the {securityRole.name} role'
+    else:
+        logEmbed.description = f'{ctx.author.mention} tried to use !reject on {member.mention} in {currentChannel}.\n\n' \
+                               f'They either do not have the proper permissions or it was an invalid channel'
         await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
-        logger.info(
-            f'REJECT: {ctx.author.display_name} failed to use command on {member.name} because they don\'t have '
-            f'the {securityRole.name} role')
+        logger.info(f'reject: {securityTeam} role not found or {currentChannel} is not valid!')
 
-    # if its used in the wrong channel, log that.
-    elif ctx.channel.name is not tempName:
-        logEmbed.description = f'{ctx.author.mention} tried to use !reject on {member.mention} in channel ' \
-                               f'#{ctx.channel.name} and this is not an approved channel.'
-        await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
+    await modLogChannel.send(embed=logEmbed)
 
-        logger.info(f'REJECT: {ctx.author.display_name} failed to use command on {member.name} in an inappropriate'
-                    f' channel, {ctx.channel.name}')
-
-
-# @verify.error
-# async def verify_error(ctx, error):
-#   if isinstance(error, commands.BadArgument):
-#        await ctx.send('I could not find that member... (be sure to use @Name and use the quick mention!)')
 
 @bot.command(aliases=['bot', 'commands', 'fuckingbot', 'help'])
 async def command(ctx):
@@ -286,81 +288,31 @@ async def command(ctx):
     helpEmbed.add_field(name="!buildcalc",
                         value='Link to Lynk\'s Build Calculator for determining how much you need to mine')
 
-    if ctx.guild.get_role(id=VERIFIED) not in author.roles:
+    if ctx.guild.get_role(int(VERIFIED)) not in author.roles:
         return
     else:
         await ctx.channel.send(f'Bot Commands are on their way to your DM\'s {author.mention}')
         await author.send(embed=helpEmbed)
-
 
 @bot.command(name='Skynet')
 async def command(ctx, message):
     author = ctx.author
     generalchat = get(ctx.guild.text_channels, id=GENERAL)
 
-    if author.id == 182249916087664640:
+    if author.id == int(182249916087664640):
         await generalchat.send(message)
 
 
-# Command for Alts - not ready yet.
-"""
-@bot.command(name='alt')
-async def alt(ctx, message):
+@bot.command(name="test")
+async def command(ctx):
+    memberRolesListed=""
+    roles = ctx.author.roles
 
-    _command = "Not"
-    mainName = ctx.author.display_name
-    mainID = 0
-    alts = []
+    roles.pop(0)
 
-    fullSplits = message.Split(">")
+    for role in roles:
+        memberRolesListed=memberRolesListed + " " + role.mention
 
-    if fullSplits is None or fullSplits.len() <= 1:
-        print('Alts command did not have enough arguments')
-        return
-
-    if 'add' in fullSplits[0].lower():
-        print('Adding Alts')
-        _command = "add"
-        return
-
-    elif 'remove' in fullSplits[0].lower():
-        print('Removing Alts')
-        _command = "remove"
-        return
-    else:
-        ctx.channel.send("```!alt [add|remove] - missing command type.```")
-
-    IDOfMain = fullSplits[0].Split()
-
-    if mainID is None or mainID.len() <= 1:
-        # Doesn't have id #
-        return
-    elif mainID[-1].isnumeric():
-        # store main ID
-        mainID = mainID[-1]
-        fullSplits.remove(0)
-
-    for altInfo in fullSplits:
-        nameAndID = altInfo.Split()
-        altID
-        index#
-        for word in nameAndID:
-            # find the ID #
-            if word.isnumeric():
-                altID = word
-
-
-
-
-
-@bot.command(name='test')
-async def test(ctx, member: discord.Member):
-    welcomeEmbed = discord.Embed(title="Welcome!", color=0xBA2100, )
-    welcomeEmbed.set_thumbnail(url=member.avatar_url)
-    welcomeEmbed.description = f'{ctx.author.display_name} tried to use !verify on {member.name} but they do not have ' \
-                               f'the  role'
-
-    await ctx.channel.send(embed=welcomeEmbed)
-"""
+    await ctx.channel.send(memberRolesListed)
 
 bot.run(TOKEN)
