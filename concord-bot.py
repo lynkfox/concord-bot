@@ -288,6 +288,8 @@ async def command(ctx):
     helpEmbed.add_field(name="!buildcalc",
                         value='Link to Lynk\'s Build Calculator for determining how much you need to mine')
     helpEmbed.add_field(name="!corp", value="Get the in Game Corp business cards to help searching for them")
+    helpEmbed.add_field(name="!ghDiscord", value="Will get you a link to the Golden Horde Discord")
+    helpEmbed.add_field(name="!channelPass", value="Will display the last known in-game channel passwords.")
 
     if ctx.guild.get_role(int(VERIFIED)) not in author.roles:
         return
