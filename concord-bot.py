@@ -6,6 +6,7 @@ from discord.ext import commands
 from discord.utils import get
 from dotenv import load_dotenv
 import time
+from datetime import datetime
 
 # Env Variables for security
 load_dotenv()
@@ -19,6 +20,7 @@ JOINLEAVE = int(os.getenv('ENTRY_EXIT_CHANNEL')) # the ID of the channel where J
 NEWB = int(os.getenv('NEWBIE_ROLE')) # The ID of the role that is auto assigned on join
 APPLICANT = int(os.getenv('APPLICANT_ROLE')) # the ID of the role that says they are an applicant
 DIPLOMAT = int(os.getenv('DIPLOMAT_ROLE')) # The ID of the role for diplomats.
+KICK = int(os.getenv('KICK_ROLE')) # The ID of the role that can use the Kick Command
 
 # logger setup
 logger = logging.getLogger('discord')
@@ -35,7 +37,10 @@ bot.remove_command('help')
 
 @bot.event
 async def on_ready():
-    logger.info(f'ON_READY: {bot.user} has logged in.')
+    now = datetime.now()
+
+    current_time = now.strftime("%H:%M:%S")
+    logger.info(f'({current_time}) ON_READY: {bot.user} has logged in.')
 
 @bot.event
 async def on_error(event, *args, **kwargs):
@@ -52,10 +57,14 @@ async def on_member_remove(member):
     memberRoles = member.roles
     memberRolesListed = ""
 
+    now = datetime.now()
+
+    current_time = now.strftime("%H:%M:%S")
+
     # Remove @everyone from the role list.
     memberRoles.pop(0)
 
-    logger.info(f'ON_MEMBER_REMOVE: {member.name} has left the server.')
+    logger.info(f'({current_time}) ON_MEMBER_REMOVE: {member.name} has left the server.')
 
     # generate a single string of all the roles as mentionables.
     for role in memberRoles:
@@ -79,9 +88,12 @@ async def on_member_join(member):
     checkpointCategory = guild.get_channel(CHECKPOINT)
     securityTeam = guild.get_role(SECURITY)
 
+    now = datetime.today()
+
+    current_time = now.strftime("%H:%M:%S")
 
     # log join
-    logger.info(f'ON_MEMBER_JOIN: {member.name} has joined the server. Private room of {privateChannelName} created')
+    logger.info(f'({current_time}) ON_MEMBER_JOIN: {member.name} has joined the server. Private room of {privateChannelName} created')
 
     # Give the member the 'Just Joined' role
     await member.add_roles(newbieRole)
@@ -145,6 +157,10 @@ async def verify(ctx, member: discord.Member):
     applicantRole = guild.get_role(APPLICANT)
     validUseOfCommand = False
 
+    now = datetime.today()
+
+    current_time = now.strftime("%H:%M:%S")
+
     # break the process if they forgot to include an target
     if member is None:
         await currentChannel.send('```Need the @name of the person you are attempting to verify```')
@@ -195,7 +211,7 @@ async def verify(ctx, member: discord.Member):
         await member.add_roles(verifiedRole, reason='Verify Command')
         await member.remove_roles(newbieRole)
         await member.remove_roles(applicantRole)
-        logEmbed.description = f'{ctx.author.mention} verified {member.mention}'
+        logEmbed.description = f'{ctx.author.mention} verified {member.mention} | {member.display_name}'
 
         # Send the Welcome and New Associate Embeds
         await generalChannel.send(embed=welcomeEmbed)
@@ -205,7 +221,7 @@ async def verify(ctx, member: discord.Member):
         await member.send(embed=newPlayerEmbed3)
 
         # log the channel about to be deleted
-        logger.info(f'VERIFY: Deleted Channel {currentChannel}')
+        logger.info(f'({current_time}) VERIFY: Deleted Channel {currentChannel}')
         await currentChannel.send(':white_check_mark:')
         await currentChannel.send('Deleting this channel in 15 seconds.')
 
@@ -213,7 +229,8 @@ async def verify(ctx, member: discord.Member):
         await asyncio.sleep(15)
         await currentChannel.delete()
     else:
-        logEmbed.description = f'{ctx.author.mention} tried to use !verify on {member.mention} in {currentChannel}.\n\n' \
+        logEmbed.description = f'{ctx.author.mention} tried to use !verify on {member.mention} | {member.display_name} ' \
+                               f'in {currentChannel}.\n\n' \
                                f'They either do not have the proper permissions or it was an invalid channel'
         await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
         logger.info(f'VERIFY: {securityTeam} role not found or {currentChannel} is not valid!')
@@ -232,6 +249,10 @@ async def reject(ctx, member: discord.Member):
     securityTeam = guild.get_role(SECURITY)
     validUseOfCommand = False
 
+    now = datetime.today()
+
+    current_time = now.strftime("%H:%M:%S")
+
     # break the process if they forgot to include an target
     if member is None:
         await currentChannel.send('```Need the @name of the person you are attempting to verify```')
@@ -246,17 +267,20 @@ async def reject(ctx, member: discord.Member):
 
     if validUseOfCommand == True:
 
+        # Delete the command usage
+        await ctx.message.delete(delay=2)
+
         # DM the member
         await member.send("Thank\'s for your interest in HOME. Either you or we decided this wasn\'t the place to "
                           "rest your head (or you didn\'t respond to inquiries for the interview process). "
                           "No hard feelings! Perhaps you\'ll find your HOME elsewhere!")
 
         # Logging
-        logger.info(f'REJECT: Deleted Channel {currentChannel}, DM sent to {member}')
-        logEmbed.description = f'{ctx.author.mention} rejected {member.mention}. They will be kicked from the server ' \
-                               f'in 15 seconds.'
+        logger.info(f'({current_time}) REJECT: Deleted Channel {currentChannel}, DM sent to {member}')
+        logEmbed.description = f'{ctx.author.mention} rejected {member.display_name}. They will be kicked from the ' \
+                               f'server in 15 seconds.'
 
-        await currentChannel.send(':x:')
+        await currentChannel.send(':wave:')
         await currentChannel.send('Deleting this channel in 15 seconds.')
 
         # wait 15 seconds then delete the channel
@@ -265,18 +289,23 @@ async def reject(ctx, member: discord.Member):
         await guild.kick(member, reason=f"Reject Command Used by {author.name}")
 
     else:
-        logEmbed.description = f'{ctx.author.mention} tried to use !reject on {member.mention} in {currentChannel}.\n\n' \
+        logEmbed.description = f'{ctx.author.mention} tried to use !reject on {member.display_name} in {currentChannel}.\n\n' \
                                f'They either do not have the proper permissions or it was an invalid channel'
         await ctx.guild.get_channel(MODLOG).send(embed=logEmbed)
-        logger.info(f'reject: {securityTeam} role not found or {currentChannel} is not valid!')
+        logger.info(f'({current_time}) REJECT: {securityTeam} role not found or {currentChannel} is not valid!')
 
     await modLogChannel.send(embed=logEmbed)
 
 
-@bot.command(aliases=['bot', 'commands', 'fuckingbot', 'help'])
+@bot.command(aliases=['bot', 'commands', 'fuckingbot', 'help', "recruiter", "recruit", "rHelp", "rhelp", "security",
+                      "verifyhelp"])
 async def command(ctx):
     author = ctx.author
     guild = ctx.guild
+
+    now = datetime.today()
+
+    current_time = now.strftime("%H:%M:%S")
 
     helpEmbed = discord.Embed(title="CONCORD Bot Help", color=0xFFFFFF)
     helpEmbed.set_thumbnail(url=guild.icon_url)
@@ -288,47 +317,47 @@ async def command(ctx):
     helpEmbed.add_field(name="!buildcalc",
                         value='Link to Lynk\'s Build Calculator for determining how much you need to mine')
     helpEmbed.add_field(name="!corp", value="Get the in Game Corp business cards to help searching for them")
+    helpEmbed.add_field(name="!nato {SystemName}", value="Will translate the name of a system to Phonetic Nato - !nato"
+                                                         " 8-SPNN -> EIGHT -TAC- SIERRA PAPA NOVEMBER NOVEMBER")
     helpEmbed.add_field(name="!ghDiscord", value="Will get you a link to the Golden Horde Discord")
-    helpEmbed.add_field(name="!channelPass", value="Will display the last known in-game channel passwords.")
+    helpEmbed.add_field(name="!channelPass", value="Will display the last known in-game channel passwords. (Aliases: "
+                                                   "!password | !channel | and lots of others")
+
+    recruitHelpEmbed = discord.Embed(title="Recruiter Commands", color=0xFFFFFF)
+    recruitHelpEmbed.description = 'These are the Following Commands that you can use on HOME at the Recruiter level'
+    recruitHelpEmbed.add_field(name="!verify @name",
+                               value='Only usable in the private channels auto generated by the bot on a new user join. '
+                                     'It will remove the Applicant and Just Joined! roles and assign Associate. It will'
+                                     'send a welcome message to the general chat and a useful new rules DM to the one '
+                                     'mentioned. It will delete the room in 15 seconds. If done correctly you will see'
+                                     'CONCORD-Bot respond with :white-check-mark:', inline=False)
+    recruitHelpEmbed.add_field(name="!reject @name",
+                               value='Only usable in the private channels auto generated by the bot on a new user join. '
+                                     'It will remove the channel and kick the user mentioned after 15 seconds. It will '
+                                     'send a DM to the user kicked explaining what happened.', inline=False)
+    directorEmbed = discord.Embed(title="Director Commands", color=0xFFFFFF)
+    directorEmbed.description = 'These are the Following Commands that you can use on HOME at the Director level'
+    directorEmbed.add_field(name="!kick @name reason",
+                               value='Only useable at the Director Level, will kick a member from the server, log the '
+                                     'use in #modlogs and send a DM with the reason entered', inline=False)
 
     if ctx.guild.get_role(int(VERIFIED)) not in author.roles:
         return
     else:
         await ctx.channel.send(f'Bot Commands are on their way to your DM\'s {author.mention}')
         await author.send(embed=helpEmbed)
-        logger.info(f'HELP: {author.name} used the help command')
+        logger.info(f'({current_time}) HELP: {author.name} used the help command')
 
+    if ctx.guild.get_role(int(SECURITY)) in author.roles:
+        await author.send(embed=recruitHelpEmbed)
 
-@bot.command(aliases=["recruiter", "recruit", "rHelp", "rhelp", "security", "verifyhelp"])
-async def recuiter(ctx):
-    author = ctx.author
-    guild = ctx.guild
+    if ctx.guild.get_role(KICK) in author.roles:
+        await author.send(embed=directorEmbed)
 
-    helpEmbed = discord.Embed(title="CONCORD Bot Recruiter Help", color=0xFFFFFF)
-    helpEmbed.set_thumbnail(url=guild.icon_url)
-    helpEmbed.description = 'These are the Following Commands that you can use on HOME at the Recruiter level'
-    helpEmbed.add_field(name="!recruiter | !recruit | !rHelp", value='This command')
-    helpEmbed.add_field(name="!verify @name",
-                        value='Only usable in the private channels auto generated by the bot on a new user join. '
-                              'It will remove the Applicant and Just Joined! roles and assign Associate. It will'
-                              'send a welcome message to the general chat and a useful new rules DM to the one '
-                              'mentioned. It will delete the room in 15 seconds. If done correctly you will see'
-                              'CONCORD-Bot respond with :white-check-mark:', inline=False)
-    helpEmbed.add_field(name="!reject @name",
-                        value='Only usable in the private channels auto generated by the bot on a new user join. '
-                              'It will remove the channel and kick the user mentioned after 15 seconds. It will '
-                              'send a DM to the user kicked explaining what happened.', inline=False)
-
-    if ctx.guild.get_role(int(SECURITY)) not in author.roles:
-        return
-    else:
-        await ctx.channel.send(f'Recruiter commands on their way to your DM\'s {author.mention}')
-        await author.send(embed=helpEmbed)
-        logger.info(f'HELP: {author.name} used the recruiter help command')
 
 
 @bot.command(name='Skynet')
-async def command(ctx, message):
+async def skynet(ctx, message):
     author = ctx.author
     generalchat = get(ctx.guild.text_channels, id=GENERAL)
 
@@ -341,6 +370,10 @@ async def corp(ctx):
     author = ctx.author
     channel = ctx.channel
 
+    now = datetime.today()
+
+    current_time = now.strftime("%H:%M:%S")
+
     cardEmbed = discord.Embed(title="In Game Corp", description="How to find HOME in game.")
     cardEmbed.add_field(name="HOME - Up to 2 clones per player (subject to change)",
                         value=" Search for HOME or 1000000581", inline=False)
@@ -349,7 +382,164 @@ async def corp(ctx):
     cardEmbed.set_image(url="https://cdn.discordapp.com/attachments/743284961225998406/762367195334049882/unknown.png")
 
     await channel.send(embed=cardEmbed)
-    logger.info(f'CORP: {author.name} used the corp buisness card command in #{channel}')
+    logger.info(f'({current_time}) CORP: {author.name} used the corp buisness card command in #{channel}')
+
+
+@bot.command(name="kick")
+async def kick(ctx, member: discord.member, *, message: str = "None Provided"):
+    author = ctx.author
+    guild = ctx.guild
+    modLogChannel = guild.get_channel(MODLOG)
+
+    now = datetime.today()
+
+    # Create the MODLOG channel embed
+    logEmbed = discord.Embed(title="KICK Command Used;", color=0x870404)
+
+    if ctx.guild.get_role(KICK) not in author.roles:
+        logger.info(f'{now} KICK: {author.mention} tried to use KICK but does not have the appropriate permissions')
+        logEmbed.description = f'{author.mention} tried to use the Kick command but did not have the proper role'
+        return
+    else:
+        # React to the command usage
+
+        # DM the member
+        await member.send(f"You have been removed from the HOME server. {message}")
+
+        # Logging
+        logger.info(f'({now}) KICK: {author.mention} has Kicked {member.display_name} with {message} reason')
+        logEmbed.description = f'{author.mention} kicked {member.display_name} with the reason of {message}'
+
+        #Kick
+        await guild.kick(member, reason=f"{message} as entered by {author.display_name}")
+
+    await modLogChannel.send(embed=logEmbed)
+
+
+@bot.command(name='lynksmoa')
+async def lynksmoa(ctx):
+
+    startDate = datetime.fromtimestamp(1601827200)
+
+    currentDate = datetime.today()
+
+    stringDate = currentDate.strftime('%Y-%m-%d %H:%M:%S')
+
+    difference = currentDate-startDate
+
+    days = divmod(difference.total_seconds(), 86400)
+    hours = divmod(days[1], 3600)
+    minutes = divmod(hours[1], 60)
+
+    embed = discord.Embed(title="Lynk's Moa - How long has it lasted?", color=0x2EA7DB,
+                          description="Lynk got his newest Moa (#4) a Guardian on October 4th, 2020: ~1600 EDT")
+    embed.add_field(name="It has been..",
+                    value=f'{days[0]} days,  {hours[0]} hours, and {minutes[0]} minutes since Lynk got his latest Moa.',
+                    inline=False)
+    embed.add_field(name="Moa #1", value="Lost to T7 Deadspace ~ 2 weeks")
+    embed.add_field(name="Moa #2", value="Lost to T7 Anomoly in ~ 24 hours")
+    embed.add_field(name="Moa #3", value="Lost to Scout Gankers in < 12hours")
+
+    await ctx.channel.send(embed=embed)
+    logger.info(f'({currentDate}) LYNKSMOA: {ctx.author} used the lynksmoa command')
+
+
+@bot.command(aliases=["channelPass", "channelpass", "channel", "m53defense", "p74", "ghc", "password", "passwords",
+             "channelPasswords", "channelpassword", "pass", "Channelpass", "ChannelPass", "ChannelPasswords"])
+async def channel_password(ctx):
+    author = ctx.author
+    guild = ctx.guild
+    modLogChannel = guild.get_channel(MODLOG)
+    now = datetime.today()
+
+    if ctx.guild.get_role(int(VERIFIED)) not in author.roles:
+        return
+    else:
+        passwordEmbed = discord.Embed(title="In Game Channels and Passwords", color=0x000000)
+        passwordEmbed.description = "This Command last Updated 2020.10.07. If incorrect message Lynkfox and check the" \
+                                    " Golden Horde Discord #ingame-channels.\n\nFormat: " \
+                                    "Description, ```channelName - password```"
+        passwordEmbed.add_field(name="Intel Channels", value="For Grey/Red Sightings and movement reports. No idle "
+                                                             "chat. General Cache Intel ```p74 - 36791```"
+                                                             "M53 Miner Defense Intel ```m53defense - 36791```"
+                                                             "Germinate Intel ```GemIntel - 6771```"
+                                                             "Outpost Defense Callouts ```8spnn - 36791```", inline=False)
+        passwordEmbed.add_field(name="General Chat", value="Chatting and Fleet up"
+                                                           "General Chat ```GHC - 5739"
+                                                           "Germinate Chat ```nsf1 - 0402", inline=False)
+        passwordEmbed.add_field(name="Fleeting Up", value="Often CTA's will ask you to x up in a chat channel. Because"
+                                                          " of the size of our alliance, once you have joined a fleet "
+                                                          "please leave the channel to allow others to get in and x up.",
+                                inline=False)
+
+        onItsWay = discord.Embed(title="", color=0x000000, description=f'Channel Passwords Messaged to you, '
+                                                                       f'{author.mention}')
+        await author.send(embed=passwordEmbed)
+        await ctx.channel.send(embed=onItsWay)
+        logger.info(f'({now}) CHANNEL_PASSWORD: {ctx.author} used the channelPass command')
+
+
+@bot.command(name="nato")
+async def nato(ctx, system:str):
+    natoAlphabet = { 'A':'Alfa',
+                     'B':'Bravo',
+                     'C':'Charlie',
+                     'D':'Delta',
+                     'E':'Echo',
+                     'F':'Foxtrot',
+                     'G':'Golf',
+                     'H':'Hotel',
+                     'I':'India',
+                     'J':'Juliet',
+                     'K':'Kilo',
+                     'L':'Lima',
+                     'M':'Mike',
+                     'N':'November',
+                     'O':'Oscar',
+                     'P':'Papa',
+                     'Q':'Quebec',
+                     'R':'Romeo',
+                     'S':'Sierra',
+                     'T':'Tango',
+                     'U':'Unicorn',
+                     'V':'Victor',
+                     'W':'Whisky',
+                     'X':'X-Ray',
+                     'Y':'Yankee',
+                     'Z':'Zulu',
+                     '-':'-tac-',
+                     '0':'Zero',
+                     '1':'One',
+                     '2':'Two',
+                     '3':'Three',
+                     '4':'Four',
+                     '5':'Five',
+                     '6':'Six',
+                     '7':'Seven',
+                     '8':'Eight',
+                     '9':'Niner'
+                     }
+    word = list(str(system))
+    channel = ctx.channel
+    author = ctx.author
+    now = datetime.today()
+
+    translated = "Translated: "
+    for letter in word:
+        translated += natoAlphabet[letter.upper()].upper() + " "
+
+    embed = discord.Embed(title="Nato Translation", color=0x00E8FF)
+    embed.description=f'{system.upper()} {translated}'
+
+    await channel.send(embed=embed)
+
+    logger.info(f'({now}) NATO: {ctx.author} used the NATO command on {system}')
+
+    '''
+    await channel.send(embed=embed)
+'''
+
+
 
 '''
 @bot.command(name="test")
