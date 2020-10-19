@@ -536,7 +536,7 @@ async def kick(ctx, member: discord.member, *, message: str = "None Provided"):
 @bot.command(name='lynksmoa')
 async def lynksmoa(ctx):
 
-    startDate = datetime.fromtimestamp(1601827200)
+    startDate = datetime.fromtimestamp(1603066735)
 
     currentDate = datetime.today()
 
@@ -549,12 +549,13 @@ async def lynksmoa(ctx):
     minutes = divmod(hours[1], 60)
 
     embed = discord.Embed(title="Lynk's Moa - How long has it lasted?", color=0x2EA7DB,
-                          description="Lynk currently has no Moa :(")
-    '''
-    embed.add_field(name="It has been..",
+                          description="Lynk is on Moa number 5, a standard T6 Moa. It came first came online on "
+                                      "2020.19.10 around 00:20 UTC")
+
+    embed.add_field(name="It has been...",
                     value=f'{days[0]} days,  {hours[0]} hours, and {minutes[0]} minutes since Lynk got his latest Moa.',
                     inline=False)
-                    '''
+
     embed.add_field(name="Moa #1", value="Lost to T7 Deadspace ~ 2 weeks")
     embed.add_field(name="Moa #2", value="Lost to T7 Anomoly in ~ 24 hours")
     embed.add_field(name="Moa #3", value="Lost to Scout Gankers in < 12hours")
@@ -662,7 +663,6 @@ async def nick(ctx, *nickname):
     guild = ctx.guild
     channel = ctx.channel
     author = ctx.author
-    modLogChannel = guild.get_channel(MODLOG)
     roles = ""
     roleLog = ""
     newNick = ""
@@ -702,7 +702,6 @@ async def nick(ctx, *nickname):
 
     await author.edit(nick=newNick)
     await channel.send(embed=setEmbed)
-    await modLogChannel.send(embed=logEmbed)
     logger.info(f'({now}) NICK: {ctx.author} used the NICK command: New Nickname: {newNick}')
 
 
