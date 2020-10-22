@@ -800,7 +800,7 @@ async def nick_error(ctx, error):
 
 
 @bot.command(name="badge")
-async def add_badge(ctx, member: discord.member, role):
+async def add_badge(ctx, member: discord.Member = None, role: str = None):
     guild = ctx.guild
     channel = ctx.channel
     author = ctx.author
@@ -816,11 +816,11 @@ async def add_badge(ctx, member: discord.member, role):
     if director not in author.roles:
         return
 
-    if role.lower() == combat:
+    if role.lower() == 'ace':
         roles = "-♤-"
         await member.add_roles(combat, reason="Promote Command")
 
-    if role.lower == mining:
+    if role.lower() == 'hemp':
         roles = "-☆-"
         await member.add_roles(mining, reason="Promote Command")
 
@@ -830,11 +830,11 @@ async def add_badge(ctx, member: discord.member, role):
     newNick = roles+currentNickname
 
     setEmbed = discord.Embed(title=f'{role} Assigned!', color=0xD1FF00,
-                             description=f'{author.display_name}, {currentNickname} has been promoted to {role.name}.'
+                             description=f'{author.display_name}, {currentNickname} has been promoted to {role}.'
                                          f' New Nickname: {newNick}')
 
     logEmbed = discord.Embed(title=f"{role} Assigned", color=0xB50094,
-                             description=f'{author.display_name} promoted {currentNickname} to {role.name}. .')
+                             description=f'{author.display_name} promoted {currentNickname} to {role}. .')
 
     await author.edit(nick=newNick)
     await channel.send(embed=setEmbed)
