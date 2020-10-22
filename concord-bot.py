@@ -13,6 +13,8 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')  # Your Discord Bot Token
 VERIFIED = int(os.getenv('VERIFIED_ROLE')) # The Role ID that allows access into the server
 MODLOG = int(os.getenv('MOD_CHANNEL')) # The ID of the channel that you want the bot to log to
+DONATION = int(os.getenv('DONATION_CHANNEL'))
+ERROR = int(os.getenv('ERROR_CHANNEL'))
 SECURITY = int(os.getenv('SECURITY_ROLE')) # The ID Of the role that can !verify or !reject
 CHECKPOINT = int(os.getenv('CHECKPOINT_CAT')) # The ID of the category the private channel should be in
 GENERAL = int(os.getenv('GENERAL_CHAT')) # The ID of the general chat for a welcome aboard message
@@ -87,9 +89,6 @@ async def on_member_remove(member):
     # generate a single string of all the roles as mentionables.
     for role in memberRoles:
         memberRolesListed=memberRolesListed + " " + role.mention
-
-
-
 
     logEmbed = discord.Embed(title="Member has Left", color=0xB81604)
     logEmbed.description = f'{member.mention} ( {member.name} ) has left the server'
@@ -280,6 +279,22 @@ async def verify(ctx, member: discord.Member):
 
     await modLogChannel.send(embed=logEmbed)
 
+@verify.error
+async def verify_error(ctx, error):
+    now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
+
+    current_time = now.strftime("%H:%M:%S")
+
+    if isinstance(error, commands.BadArgument):
+        logger.info(f'({current_time}) VERIFY: Bad Argument')
+
+    else:
+        await error_channel.send(f'`VERIFY: Error: {error}`')
+        logger.info(f'({current_time}) VERIFY: {error}')
+
+
+
 @bot.command(name="reject")
 async def reject(ctx, member: discord.Member = None):
 
@@ -343,6 +358,7 @@ async def reject(ctx, member: discord.Member = None):
 @reject.error
 async def reject_error(ctx, error):
     now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
 
     current_time = now.strftime("%H:%M:%S")
 
@@ -350,10 +366,13 @@ async def reject_error(ctx, error):
         logger.info(f'({current_time}) REJECT: The targeted member for !reject has aleady left the server or is not'
                     f'a viable target')
         await ctx.channel.send('`The User specified has already left the server, please use the !close command`')
+    else:
+        await error_channel.send(f'`REJECT: Error: {error}`')
+        logger.info(f'({current_time}) REJECT: {error}')
 
 
 @bot.command(name="close")
-async def command(ctx, channel: str = None):
+async def close(ctx, channel: str = None):
     guild = ctx.guild
     currentChannel = ctx.channel
     author = ctx.author
@@ -410,6 +429,17 @@ async def command(ctx, channel: str = None):
     await modLogChannel.send(embed=logEmbed)
 
 
+@close.error
+async def close_error(ctx, error):
+    now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
+
+    current_time = now.strftime("%H:%M:%S")
+
+    await error_channel.send(f'`CLOSE: Error: {error}`')
+    logger.info(f'({current_time}) CLOSE: {error}')
+
+
 @bot.command(aliases=['bot', 'commands', 'fuckingbot', 'help', "recruiter", "recruit", "rHelp", "rhelp", "security",
                       "verifyhelp"])
 async def command(ctx):
@@ -435,6 +465,8 @@ async def command(ctx):
     helpEmbed.add_field(name="!ghDiscord", value="Will get you a link to the Golden Horde Discord")
     helpEmbed.add_field(name="!channelPass", value="Will display the last known in-game channel passwords. (Aliases: "
                                                    "!password | !channel | and lots of others")
+    helpEmbed.add_field(name="!hemp {ore_emoji} #", value="For HEMP donations. Put all your ore in at once, like:\n\n"
+                                                          "!hemp :spodumain: 1000 :veldspar: 1000")
 
     recruitHelpEmbed = discord.Embed(title="Recruiter Commands", color=0xFFFFFF)
     recruitHelpEmbed.description = 'These are the Following Commands that you can use on HOME at the Recruiter level'
@@ -471,6 +503,15 @@ async def command(ctx):
     if ctx.guild.get_role(KICK) in author.roles:
         await author.send(embed=directorEmbed)
 
+@command.error
+async def command_error(ctx, error):
+    now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
+
+    current_time = now.strftime("%H:%M:%S")
+
+    await error_channel.send(f'`COMMAND/HELP: Error: {error}`')
+    logger.info(f'({current_time}) COMMAND/HELP: {error}')
 
 
 @bot.command(name='Skynet')
@@ -500,6 +541,16 @@ async def corp(ctx):
 
     await channel.send(embed=cardEmbed)
     logger.info(f'({current_time}) CORP: {author.name} used the corp buisness card command in #{channel}')
+
+@corp.error
+async def corp_error(ctx, error):
+    now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
+
+    current_time = now.strftime("%H:%M:%S")
+
+    await error_channel.send(f'`CORP: Error: {error}`')
+    logger.info(f'({current_time}) CORP: {error}')
 
 
 @bot.command(name="kick")
@@ -531,6 +582,17 @@ async def kick(ctx, member: discord.member, *, message: str = "None Provided"):
         await guild.kick(member, reason=f"{message} as entered by {author.display_name}")
 
     await modLogChannel.send(embed=logEmbed)
+
+
+@kick.error
+async def kick_error(ctx, error):
+    now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
+
+    current_time = now.strftime("%H:%M:%S")
+
+    await error_channel.send(f'`KICK: Error: {error}`')
+    logger.info(f'({current_time}) KICK: {error}')
 
 
 @bot.command(name='lynksmoa')
@@ -601,6 +663,17 @@ async def channel_password(ctx):
         logger.info(f'({now}) CHANNEL_PASSWORD: {ctx.author} used the channelPass command')
 
 
+@channel_password.error
+async def channel_password_error(ctx, error):
+    now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
+
+    current_time = now.strftime("%H:%M:%S")
+
+    await error_channel.send(f'`CHANNELPASSWORD: Error: {error}`')
+    logger.info(f'({current_time}) CHANNELPASSWORD: {error}')
+
+
 @bot.command(name="nato")
 async def nato(ctx, system:str):
     natoAlphabet = { 'A':'Alfa',
@@ -658,6 +731,17 @@ async def nato(ctx, system:str):
     logger.info(f'({now}) NATO: {ctx.author} used the NATO command on {system}')
 
 
+@nato.error
+async def nato_error(ctx, error):
+    now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
+
+    current_time = now.strftime("%H:%M:%S")
+
+    await error_channel.send(f'`NATO: Error: {error}`')
+    logger.info(f'({current_time}) NATO: {error}')
+
+
 @bot.command(name="nick")
 async def nick(ctx, *nickname):
     guild = ctx.guild
@@ -704,6 +788,16 @@ async def nick(ctx, *nickname):
     await channel.send(embed=setEmbed)
     logger.info(f'({now}) NICK: {ctx.author} used the NICK command: New Nickname: {newNick}')
 
+@nick.error
+async def nick_error(ctx, error):
+    now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
+
+    current_time = now.strftime("%H:%M:%S")
+
+    await error_channel.send(f'`NICK: Error: {error}`')
+    logger.info(f'({current_time}) NICK: {error}')
+
 
 @bot.command(name="badge")
 async def add_badge(ctx, member: discord.member, role):
@@ -748,18 +842,112 @@ async def add_badge(ctx, member: discord.member, role):
     logger.info(f'({now}) PROMOTE: {ctx.author} promoted {member.display_name} to {roles}"')
 
 
-'''
-@bot.command(name="test")
-async def command(ctx):
-    memberRolesListed=""
-    roles = ctx.author.roles
+@add_badge.error
+async def add_badge_error(ctx, error):
+    now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
 
-    roles.pop(0)
+    current_time = now.strftime("%H:%M:%S")
 
-    for role in roles:
-        memberRolesListed=memberRolesListed + " " + role.mention
+    await error_channel.send(f'`BADGE: Error: {error}`')
+    logger.info(f'({current_time}) BADGE: {error}')
 
-    await ctx.channel.send(memberRolesListed)
-'''
+
+@bot.command(name='hemp')
+async def hemp(ctx, *buyback):
+    guild = ctx.guild
+    channel = ctx.channel
+    author = ctx.author
+    now = datetime.today()
+    hemp_channel = guild.get_channel(DONATION)
+    error_channel = guild.get_channel(ERROR)
+    mod_log_channel = guild.get_channel(MODLOG)
+
+    buyback_volume = 0
+
+    size_values = {'veldspar': .1,
+                   'plagioclase': .35,
+                   'scordite': .15,
+                   'omber': .6,
+                   'pyroxeres': 1.5,
+                   'kernite': 1.2,
+                   'darkochre': 1.6,
+                   'gneiss': 2,
+                   'spodumain': 3.2,
+                   'hemorphite': 3,
+                   'hedbergite': 3,
+                   'jaspert': 4,
+                   'crokite': 6.4,
+                   'bistot': 6.4,
+                   'arkonor': 6.4,
+                   'mercoxit': 8}
+
+    total_ores = dict()
+
+    buyback_embed = discord.Embed(title=f"HEMP donation for {author.display_name}", color=0xE58700)
+
+    if buyback is None or buyback[0].isnumeric() or len(buyback) < 2 or buyback[1] is None:
+        await channel.send('`You must use the format of :ore: # for all your ores at once. Use the emoji!`')
+        return
+
+    for entry in buyback:
+        if not entry.isnumeric():
+            try:
+                ore = entry.split(':')[1]
+                unit_volume = size_values[ore.lower()]
+            except KeyError:
+                await channel.send(f'`You must use the emoji for the ore, from this server - {ore} is invalid`')
+                logger.warning(f'({now}) HEMP: {ctx.author} - {ore} invalid')
+
+                return
+            except IndexError:
+                await channel.send(f'`{entry} is an invalid flag for this command`')
+                logger.warning(f'({now}) HEMP: {ctx.author} - {entry} invalid')
+                return
+            except Exception as e:
+                logger.warning(f'({now}) HEMP: {ctx.author} - {e}')
+                await error_channel.send(f'`HEMP command failed - Exception {e}`')
+                return
+
+            ore_index = buyback.index(entry)
+            amount = buyback[ore_index+1]
+            if not amount.isnumeric():
+                await channel.send(f'`You must use numbers in the amounts: {amount} for {ore} is a bad value.`')
+                return
+
+            total_volume = unit_volume * int(amount)
+            single_ore = [amount, total_volume]
+            total_ores[ore] = single_ore
+            buyback_volume += total_volume
+
+            if ore == 'darkochre':
+                ore = 'Dark Ochre'
+
+            buyback_embed.add_field(name=f'{entry} {ore.capitalize()}',
+                                    value=f'x{amount} : ( {total_volume} m³ ) ')
+            await ctx.message.add_reaction(entry)
+
+    buyback_embed.description = f'**Total Volume Turned In** : {buyback_volume}\nOn {now.strftime("%A, %B %d %Y")}'
+
+    await hemp_channel.send(embed=buyback_embed)
+    mod_embed = discord.Embed(title=f'{author} HEMP Donation',
+                              description=f'{buyback_volume} - On {now.strftime("%A, %B %d %Y")}')
+    mod_embed.add_field(name='Ores - {Ore Name : [\'Units\', volume]}',
+                        value=total_ores)
+    await mod_log_channel.send(embed=mod_embed)
+
+    logger.info(f'({now}) HEMP: {ctx.author} used the HEMP command for a total of {buyback_volume} m3"')
+
+
+@hemp.error
+async def hemp_error(ctx, error):
+    now = datetime.today()
+    error_channel = ctx.guild.get_channel(ERROR)
+
+    current_time = now.strftime("%H:%M:%S")
+
+    await error_channel.send(f'`HEMP: Error: {error}`')
+    logger.info(f'({current_time}) HEMP: {error}')
+
 
 bot.run(TOKEN)
